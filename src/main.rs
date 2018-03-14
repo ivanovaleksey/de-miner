@@ -1,5 +1,7 @@
 extern crate itertools;
 
+use std::fmt;
+
 #[derive(Debug, PartialEq)]
 enum CellKind {
     Bomb,
@@ -12,11 +14,24 @@ enum OpenCellKind {
     Safe(usize),
 }
 
-#[derive(Debug)]
-struct Field {
-    size: usize,
-    cells: Vec<CellKind>,
+impl fmt::Display for OpenCellKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s = match *self {
+            OpenCellKind::Bomb => "X".to_owned(),
+            OpenCellKind::Safe(num) => num.to_string(),
+        };
+        f.write_str(&s)
+    }
 }
+
+#[derive(Debug)]
+struct GameField<T> {
+    size: usize,
+    cells: Vec<T>,
+}
+
+type Field = GameField<CellKind>;
+type OpenField = GameField<OpenCellKind>;
 
 impl Field {
     fn parse(input: &str) -> Field {
@@ -42,7 +57,7 @@ impl Field {
         Field { size, cells }
     }
 
-    fn open(&self) -> Vec<OpenCellKind> {
+    fn open(&self) -> OpenField {
         let mut cells = Vec::with_capacity(self.size * self.size);
 
         for (idx, cell) in self.cells.iter().enumerate() {
@@ -76,13 +91,34 @@ impl Field {
             cells.push(open_cell);
         }
 
-        cells
+        OpenField {
+            size: self.size,
+            cells,
+        }
     }
 }
 
 impl PartialEq<Vec<CellKind>> for Field {
     fn eq(&self, other: &Vec<CellKind>) -> bool {
         &self.cells == other
+    }
+}
+
+impl PartialEq<Vec<OpenCellKind>> for OpenField {
+    fn eq(&self, other: &Vec<OpenCellKind>) -> bool {
+        &self.cells == other
+    }
+}
+
+impl fmt::Display for OpenField {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for row in self.cells.chunks(self.size) {
+            for cell in row {
+                write!(f, "{}", cell)?;
+            }
+            f.write_str("\n")?;
+        }
+        f.write_str("")
     }
 }
 
@@ -180,17 +216,30 @@ mod tests {
         assert_eq!(field.open(), expected);
     }
 
-    // #[test]
-    // fn main() {
-    //     let input = r#"
-    //         X O O X X X O O
-    //         O O O O X O X X
-    //         X X O X X O O O
-    //         O X O O O X X X
-    //         O O X X X X O X
-    //         X O X X X O X O
-    //         O O O X O X O X
-    //         X O X X O X O X
-    //     "#;
-    // }
+    #[test]
+    fn main() {
+        let input = r#"X O O X X X O O
+                       O O O O X O X X
+                       X X O X X O O O
+                       O X O O O X X X
+                       O O X X X X O X
+                       X O X X X O X O
+                       O O O X O X O X
+                       X O X X O X O X"#;
+
+        let field = Field::parse(input);
+
+        let expected = r#"X 1 1 X X X 3 2
+                          3 3 3 5 X 5 X X
+                          X X 3 X X 5 5 4
+                          3 X 5 5 6 X X X
+                          2 4 X X X X 6 X
+                          X 3 X X X 5 X 3
+                          2 4 5 X 6 X 5 X
+                          X 2 X X 4 X 4 X
+                        "#;
+
+        let expected = expected.replace(" ", "");
+        assert_eq!(field.open().to_string(), expected);
+    }
 }
